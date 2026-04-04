@@ -15,3 +15,6 @@ agent-template/kb-v1/chroma_db/
 
 # Materials are excluded by default; add only explicitly approved files later if needed
 materials/
+
+# Generated reports
+tmp/
