@@ -1,0 +1,4 @@
+interface:
+  display_name: "Materials Intake"
+  short_description: "Assess new files for OCR, routing, and KB intake."
+  default_prompt: "Use $biomedical-teaching-materials-intake to evaluate new teaching materials, check PDF/OCR readiness, and plan knowledge-base intake."
