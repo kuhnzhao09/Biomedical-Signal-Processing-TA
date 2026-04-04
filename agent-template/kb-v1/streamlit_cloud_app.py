@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -14,11 +14,51 @@ from local_rag_demo import build_candidate_chunks, build_context_block, load_con
 BASE_DIR = Path(__file__).resolve().parent
 SYSTEM_PROMPT_PATH = BASE_DIR.parent / 'system-prompt.md'
 TEACHING_MODES = ('student', 'teacher')
-DEFAULT_API_BASE = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
-DEFAULT_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-DEFAULT_API_KEY = os.getenv('OPENAI_API_KEY', '')
 DEFAULT_TOP_FILES = 6
 DEFAULT_TOP_CHUNKS = 4
+
+PROVIDER_PRESETS: dict[str, dict[str, str]] = {
+    'App Default': {
+        'api_base': 'https://api.openai.com/v1',
+        'model': 'gpt-4o-mini',
+        'key_secret': 'OPENAI_API_KEY',
+        'base_secret': 'OPENAI_BASE_URL',
+        'model_secret': 'OPENAI_MODEL',
+        'description': 'Use the app-wide OpenAI-compatible configuration from Streamlit secrets.',
+    },
+    'Groq': {
+        'api_base': 'https://api.groq.com/openai/v1',
+        'model': 'llama-3.3-70b-versatile',
+        'key_secret': 'GROQ_API_KEY',
+        'base_secret': 'GROQ_API_BASE',
+        'model_secret': 'GROQ_MODEL',
+        'description': 'Groq OpenAI-compatible endpoint. Fast and convenient for demos.',
+    },
+    'Gemini': {
+        'api_base': 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        'model': 'gemini-3-flash-preview',
+        'key_secret': 'GEMINI_API_KEY',
+        'base_secret': 'GEMINI_API_BASE',
+        'model_secret': 'GEMINI_MODEL',
+        'description': 'Google Gemini OpenAI compatibility endpoint.',
+    },
+    'OpenRouter': {
+        'api_base': 'https://openrouter.ai/api/v1',
+        'model': 'openrouter/free',
+        'key_secret': 'OPENROUTER_API_KEY',
+        'base_secret': 'OPENROUTER_API_BASE',
+        'model_secret': 'OPENROUTER_MODEL',
+        'description': 'OpenRouter unified endpoint. `openrouter/free` is useful for zero-cost trials.',
+    },
+    'Custom': {
+        'api_base': 'https://api.openai.com/v1',
+        'model': '',
+        'key_secret': 'CUSTOM_API_KEY',
+        'base_secret': 'CUSTOM_API_BASE',
+        'model_secret': 'CUSTOM_MODEL',
+        'description': 'Bring your own OpenAI-compatible API base, model, and key.',
+    },
+}
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(errors='replace')
@@ -156,10 +196,43 @@ def extract_delta_text(delta: Any) -> str:
     return extract_text_content(delta)
 
 
+def resolve_provider_settings(provider_name: str) -> dict[str, str]:
+    preset = PROVIDER_PRESETS[provider_name]
+    api_base = str(get_secret(preset.get('base_secret', ''), preset['api_base']))
+    model = str(get_secret(preset.get('model_secret', ''), preset['model']))
+    api_key = str(get_secret(preset.get('key_secret', ''), ''))
+
+    if provider_name == 'App Default':
+        api_base = str(get_secret('OPENAI_BASE_URL', api_base or preset['api_base']))
+        model = str(get_secret('OPENAI_MODEL', model or preset['model']))
+        api_key = str(get_secret('OPENAI_API_KEY', api_key))
+
+    return {
+        'provider_name': provider_name,
+        'api_base': api_base,
+        'model': model,
+        'api_key': api_key,
+        'description': preset['description'],
+    }
+
+
+def build_provider_headers(provider_name: str) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if provider_name == 'OpenRouter':
+        referer = str(get_secret('OPENROUTER_HTTP_REFERER', '')).strip()
+        title = str(get_secret('OPENROUTER_APP_TITLE', 'Biomedical Signal Processing TA')).strip()
+        if referer:
+            headers['HTTP-Referer'] = referer
+        if title:
+            headers['X-OpenRouter-Title'] = title
+    return headers
+
+
 def stream_answer(
     query: str,
     retrieval_result: dict[str, Any],
     system_prompt: str,
+    provider_name: str,
     api_base: str,
     api_key: str,
     model: str,
@@ -171,9 +244,11 @@ def stream_answer(
     model = model.strip()
 
     if not api_key:
-        raise RuntimeError('Missing API key. Configure OPENAI_API_KEY or Streamlit secrets.')
+        raise RuntimeError('Missing API key. Configure the provider key in Streamlit secrets or enter it in the sidebar.')
     if not model:
         raise RuntimeError('Missing model name.')
+    if not api_base:
+        raise RuntimeError('Missing API base URL.')
 
     endpoint = api_base.rstrip('/') + '/chat/completions'
     payload = {
@@ -190,6 +265,7 @@ def stream_answer(
         'Content-Type': 'application/json',
         'Accept': 'text/event-stream',
     }
+    headers.update(build_provider_headers(provider_name))
 
     timeout = httpx.Timeout(connect=20.0, read=float(timeout_s), write=30.0, pool=30.0)
     with httpx.Client(timeout=timeout) as client:
@@ -198,7 +274,8 @@ def stream_answer(
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 body = exc.response.text[:1200] if exc.response is not None else ''
-                raise RuntimeError(f"HTTP {exc.response.status_code if exc.response is not None else ''}: {body}") from exc
+                code = exc.response.status_code if exc.response is not None else ''
+                raise RuntimeError(f'HTTP {code}: {body}') from exc
             for line in response.iter_lines():
                 if not line:
                     continue
@@ -237,14 +314,11 @@ def render_result_card(index: int, item: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title='Biomedical Signal Processing TA', page_icon='\U0001F9EA', layout='wide')
+    st.set_page_config(page_title='Biomedical Signal Processing TA', page_icon='🧪', layout='wide')
 
     config = load_config(BASE_DIR / 'retrieval-priority-v1.json')
     system_prompt = load_system_prompt()
 
-    api_base = str(get_secret('OPENAI_BASE_URL', DEFAULT_API_BASE))
-    api_key = str(get_secret('OPENAI_API_KEY', DEFAULT_API_KEY))
-    model = str(get_secret('OPENAI_MODEL', DEFAULT_MODEL))
     timeout_default = int(get_secret('OPENAI_TIMEOUT_SECONDS', 180))
     enable_teacher_mode = str(get_secret('ENABLE_TEACHER_MODE', 'false')).lower() == 'true'
 
@@ -258,16 +332,28 @@ def main() -> None:
 
         st.subheader('Teaching Mode')
         if enable_teacher_mode:
-            teaching_mode = st.selectbox('Audience Mode', options=TEACHING_MODES, format_func=lambda x: '学生模式' if x == 'student' else '教师模式')
+            teaching_mode = st.selectbox(
+                'Audience Mode',
+                options=TEACHING_MODES,
+                format_func=lambda x: '学生模式' if x == 'student' else '教师模式',
+            )
         else:
             teaching_mode = 'student'
-            st.caption('学生模式已固定。若要开启教师模式，请在 secrets 中设置 ENABLE_TEACHER_MODE=true。')
+            st.caption('学生模式已固定。如需开启教师模式，请在 secrets 中设置 `ENABLE_TEACHER_MODE=true`。')
 
-        st.subheader('LLM Settings')
-        st.caption('For public deployment, configure these in Streamlit secrets rather than exposing them to students.')
+        st.subheader('LLM Provider')
+        provider_name = st.selectbox('Provider Preset', options=list(PROVIDER_PRESETS.keys()), index=0)
+        provider_defaults = resolve_provider_settings(provider_name)
+        st.caption(provider_defaults['description'])
+
+        api_base = st.text_input('API Base', value=provider_defaults['api_base'])
+        model = st.text_input('Model', value=provider_defaults['model'])
+        api_key = st.text_input('API Key', value=provider_defaults['api_key'], type='password')
+
+        st.subheader('Generation Settings')
         temperature = st.slider('Temperature', min_value=0.0, max_value=1.0, value=0.2, step=0.05)
         timeout_s = st.slider('Timeout (s)', min_value=30, max_value=300, value=timeout_default, step=15)
-        st.code(f'API Base: {api_base}\nModel: {model}', language='text')
+        st.caption('You can use the built-in presets or override them with your own OpenAI-compatible API settings.')
 
     query = st.text_area(
         'Ask a question',
@@ -292,22 +378,24 @@ def main() -> None:
     generated_answer = None
     generation_error = None
 
-    info1, info2, info3, info4, info5 = st.columns(5)
+    info1, info2, info3, info4, info5, info6 = st.columns(6)
     info1.metric('Route', retrieval_result['route'])
     info2.metric('Preferred Groups', len(retrieval_result['preferred_groups']))
     info3.metric('Returned Chunks', len(retrieval_result['results']))
-    info4.metric('Generation', 'On' if bool(api_key) else 'Off')
+    info4.metric('Generation', 'On' if bool(api_key.strip()) else 'Off')
     info5.metric('Mode', '学生' if teaching_mode == 'student' else '教师')
+    info6.metric('Provider', provider_name)
 
     st.subheader('Generated Answer')
     answer_container = st.empty()
-    if api_key:
+    if api_key.strip():
         try:
             generated_answer = answer_container.write_stream(
                 stream_answer(
                     query=query,
                     retrieval_result=retrieval_result,
                     system_prompt=system_prompt,
+                    provider_name=provider_name,
                     api_base=api_base,
                     api_key=api_key,
                     model=model,
@@ -320,18 +408,24 @@ def main() -> None:
         except Exception as exc:
             generation_error = str(exc)
     else:
-        generation_error = 'No API key configured. Set OPENAI_API_KEY in Streamlit secrets.'
+        generation_error = 'No API key configured. Add a provider key in Streamlit secrets or enter one in the sidebar.'
 
     if generation_error:
         st.error(f'Answer generation failed: {generation_error}')
     elif not generated_answer:
         st.warning('The API stream completed but returned no text.')
 
-    st.subheader('参考资料')
+    st.subheader('Reference Materials')
     render_reference_list(retrieval_result['references'])
 
     st.subheader('Policy')
     st.json(retrieval_result['answer_policy'] or {})
+
+    with st.expander('Active API Configuration', expanded=False):
+        st.code(
+            f'Provider: {provider_name}\nAPI Base: {api_base.strip()}\nModel: {model.strip()}\nAPI Key: {'*' * min(len(api_key.strip()), 8) if api_key.strip() else '(empty)'}',
+            language='text',
+        )
 
     left, right = st.columns([1.1, 1])
     with left:
