@@ -41,9 +41,11 @@ def resolve_candidate_documents(query: str, config: dict[str, Any]) -> list[dict
     route_name = choose_route(query, config)
     route = get_route_config(route_name, config)
     source_groups = config.get('source_groups', {})
+    route_groups = route.get('use', [])
+    group_order = {group_name: index for index, group_name in enumerate(route_groups)}
     candidates: list[dict[str, Any]] = []
 
-    for group_name in route.get('use', []):
+    for group_name in route_groups:
         group = source_groups.get(group_name, {})
         if group.get('exclude_from_default'):
             continue
@@ -53,6 +55,7 @@ def resolve_candidate_documents(query: str, config: dict[str, Any]) -> list[dict
                 {
                     'route': route_name,
                     'group': group_name,
+                    'route_order': group_order.get(group_name, 999),
                     'priority': group.get('priority', 99),
                     'weight': group.get('weight', 0.0),
                     'path': str(path),
@@ -60,7 +63,7 @@ def resolve_candidate_documents(query: str, config: dict[str, Any]) -> list[dict
                 }
             )
 
-    candidates.sort(key=lambda item: (item['priority'], -item['weight'], item['path']))
+    candidates.sort(key=lambda item: (item['route_order'], item['priority'], -item['weight'], item['path']))
     return candidates
 
 

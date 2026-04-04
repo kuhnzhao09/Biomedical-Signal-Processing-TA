@@ -31,8 +31,14 @@
       "paths": [
         "D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ecg_ch1.pdf",
         "D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-l3_ecg_reisner.pdf",
-        "D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-lab1_ecg.pdf",
         "D:/NJMU/生物医学信号处理/materials/open-resources/tutorial-pages/PhysioNet-Tutorial.html"
+      ]
+    },
+    "lab_core": {
+      "priority": 2,
+      "weight": 0.9,
+      "paths": [
+        "D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-lab1_ecg.pdf"
       ]
     },
     "eeg_core": {
@@ -113,6 +119,7 @@
     },
     "lab_general": {
       "use": [
+        "lab_core",
         "theory_core",
         "ecg_core",
         "eeg_core",
@@ -202,6 +209,12 @@
   },
   "routing_hints": {
     "query_contains": {
+      "homework": "assignment_help",
+      "assignment": "assignment_help",
+      "??": "lab_general",
+      "lab": "lab_general",
+      "matlab": "matlab_code_help",
+      "python": "python_code_help",
       "ecg": "ecg_question",
       "qrs": "ecg_question",
       "rr": "ecg_question",
@@ -214,14 +227,7 @@
       "photoplethysmography": "ppg_question",
       "fnirs": "fnirs_question",
       "hbo": "fnirs_question",
-      "hbr": "fnirs_question",
-      "matlab": "matlab_code_help",
-      "python": "python_code_help",
-      "homework": "assignment_help",
-      "assignment": "assignment_help",
-      "作业": "assignment_help",
-      "实验": "lab_general",
-      "lab": "lab_general"
+      "hbr": "fnirs_question"
     }
   },
   "answer_rules": {
