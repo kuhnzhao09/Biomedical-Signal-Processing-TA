@@ -32,10 +32,13 @@ Use this skill to standardize new course materials before they are relied on by 
 
 When a user adds a new file, classify it into one of these states:
 
-- `ready_pdf`: PDF with selectable, extractable text and a clear topic.
-- `needs_ocr`: PDF exists but appears scanned, image-only, or text extraction is poor.
-- `convert_to_pdf`: File is usable as source material but should first be exported to PDF.
-- `not_recommended`: File is too noisy, unclear, duplicated, or legally risky.
+- eady_pdf: PDF with selectable, extractable text and a clear topic.
+- eady_text_source: Markdown, text, or HTML source that is directly usable without PDF conversion.
+- 
+eeds_ocr: PDF exists but appears scanned, image-only, or text extraction is poor.
+- convert_to_pdf: File is usable as source material but should first be exported to PDF.
+- 
+ot_recommended: File is too noisy, unclear, duplicated, or legally risky.
 
 If the user provides the file itself, inspect it instead of guessing. Use the [$pdf](C:/Users/Admin/.codex/skills/pdf/SKILL.md) skill when PDF inspection or page-level checks are needed.
 
@@ -45,7 +48,7 @@ For each intake batch, produce a compact decision list that includes:
 
 - file name
 - detected format
-- intake state: `ready_pdf`, `needs_ocr`, `convert_to_pdf`, or `not_recommended`
+- intake state: `ready_pdf`, `ready_text_source`, `needs_ocr`, `convert_to_pdf`, or `not_recommended`
 - recommended folder
 - recommended normalized file name
 - recommended source group
@@ -98,6 +101,16 @@ Pause and ask the user before proceeding if:
 - OCR is required but no OCR path is available
 - a scanned PDF is the only copy and quality is too poor for reliable extraction
 - the correct topic group is ambiguous across two or more core groups
+
+## Scripts
+
+Run scripts/scan_materials_intake.py to scan a folder of new materials and emit a batch intake report in JSON and/or Markdown.
+
+Example:
+
+`ash
+python skills/biomedical-teaching-materials-intake/scripts/scan_materials_intake.py materials/course-slides --json-output tmp/intake.json --md-output tmp/intake.md
+` 
 
 ## References
 

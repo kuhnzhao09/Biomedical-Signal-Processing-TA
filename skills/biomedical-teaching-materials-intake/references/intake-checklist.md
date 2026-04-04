@@ -13,10 +13,13 @@ For each new file, identify the actual working type:
 
 If the file is a PDF, decide one of four outcomes:
 
-- `ready_pdf`: text-selectable and extractable
-- `needs_ocr`: scanned pages, screenshots, or image-only pages dominate
-- `convert_to_pdf`: not a PDF yet but should become one
-- `not_recommended`: poor quality, duplicate, or legally risky
+- eady_pdf: text-selectable and extractable
+- eady_text_source: markdown, text, or html source that can be indexed directly
+- 
+eeds_ocr: scanned pages, screenshots, or image-only pages dominate
+- convert_to_pdf: not a PDF yet but should become one
+- 
+ot_recommended: poor quality, duplicate, or legally risky
 
 Signals that a PDF likely needs OCR:
 
