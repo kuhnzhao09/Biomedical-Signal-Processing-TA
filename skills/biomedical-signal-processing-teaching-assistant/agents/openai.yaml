@@ -1,0 +1,5 @@
+interface:
+  display_name: "Biomedical Signal Processing TA"
+  short_description: "Explain signals, guide labs, and scaffold teaching."
+  default_prompt: "Use $biomedical-signal-processing-teaching-assistant to explain concepts, guide labs, or scaffold course materials."
+

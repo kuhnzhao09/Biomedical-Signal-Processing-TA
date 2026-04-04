@@ -1,0 +1,214 @@
+﻿version: 1
+profile: undergraduate-biomedical-signal-processing
+workspace_root: D:/NJMU/生物医学信号处理
+hint_only_assignment_policy: true
+
+retrieval_defaults:
+  top_k: 8
+  rerank: true
+  diversify_by_source_group: true
+  prefer_official_and_open_access: true
+  prefer_signal_specific_sources: true
+  backoff_to_background_refs: true
+  max_chunks_per_document: 3
+  max_background_ratio: 0.34
+
+source_groups:
+  theory_core:
+    priority: 1
+    weight: 1.00
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ch1_adc.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ch2_dfilt.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ch5_samp.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ch7_stft.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-tutorial.pdf
+
+  ecg_core:
+    priority: 1
+    weight: 1.00
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ecg_ch1.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-l3_ecg_reisner.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-lab1_ecg.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/tutorial-pages/PhysioNet-Tutorial.html
+
+  eeg_core:
+    priority: 1
+    weight: 0.98
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/open-resources/tutorial-pages/EEGLAB-Tutorials.html
+      - D:/NJMU/生物医学信号处理/materials/open-resources/tutorial-pages/EEGLAB-Tutorial-Data.html
+      - D:/NJMU/生物医学信号处理/materials/open-resources/tutorial-pages/MNE-Preprocessing-Index.html
+      - D:/NJMU/生物医学信号处理/materials/open-resources/pmc/EPOS-EEG-Processing-Open-Source-Scripts.html
+
+  fnirs_core:
+    priority: 1
+    weight: 0.98
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/open-resources/tutorial-pages/MNE-fNIRS-Processing-Tutorial.html
+      - D:/NJMU/生物医学信号处理/materials/open-resources/pmc/fNIRS-POTATo-Tutorial.html
+
+  emg_core:
+    priority: 2
+    weight: 0.92
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/Merletti 和 Farina - 2016 - Surface electromyography physiology, engineering .pdf
+      - D:/NJMU/生物医学信号处理/materials/表面肌电图诊断技术临床应用_13944011.pdf
+
+  hdsemg_core:
+    priority: 2
+    weight: 0.90
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/open-resources/pmc/HDsEMG-65-Hand-Gestures-Database.html
+      - D:/NJMU/生物医学信号处理/materials/Merletti 和 Farina - 2016 - Surface electromyography physiology, engineering .pdf
+
+  ppg_core:
+    priority: 2
+    weight: 0.90
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/open-resources/pmc/PPG-Best-Practices.html
+      - D:/NJMU/生物医学信号处理/materials/open-resources/pmc/Wearable-PPG-Review.html
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ch1_adc.pdf
+      - D:/NJMU/生物医学信号处理/materials/open-resources/mit-ocw/MIT-OCW-ch2_dfilt.pdf
+
+  background_refs:
+    priority: 3
+    weight: 0.55
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/Knudson - 2007 - Fundamentals of biomechanics.pdf
+      - D:/NJMU/生物医学信号处理/materials/Latash - 2012 - Fundamentals of motor control.pdf
+      - D:/NJMU/生物医学信号处理/materials/Latash 和 Lestienne - 2006 - Motor control and learning.pdf
+      - D:/NJMU/生物医学信号处理/materials/Purves - 2004 - Neuroscience.pdf
+      - D:/NJMU/生物医学信号处理/materials/Akay 和 IEEE Engineering in Medicine and Biology Society - 2000 - Nonlinear biomedical signal processing.pdf
+
+  low_trust_or_excluded:
+    priority: 9
+    weight: 0.05
+    exclude_from_default: true
+    paths:
+      - D:/NJMU/生物医学信号处理/materials/Medical Books Free Neuroscience 6th Edition PDF.pdf
+
+query_routes:
+  concept_general:
+    use:
+      - theory_core
+      - ecg_core
+      - eeg_core
+      - fnirs_core
+      - emg_core
+      - ppg_core
+      - background_refs
+
+  lab_general:
+    use:
+      - theory_core
+      - ecg_core
+      - eeg_core
+      - fnirs_core
+      - emg_core
+      - hdsemg_core
+      - ppg_core
+
+  ecg_question:
+    use:
+      - ecg_core
+      - theory_core
+      - background_refs
+
+  emg_question:
+    use:
+      - emg_core
+      - theory_core
+      - background_refs
+
+  hdsemg_question:
+    use:
+      - hdsemg_core
+      - emg_core
+      - theory_core
+
+  eeg_question:
+    use:
+      - eeg_core
+      - theory_core
+      - background_refs
+
+  ppg_question:
+    use:
+      - ppg_core
+      - theory_core
+      - background_refs
+
+  fnirs_question:
+    use:
+      - fnirs_core
+      - theory_core
+      - background_refs
+
+  matlab_code_help:
+    use:
+      - theory_core
+      - ecg_core
+      - eeg_core
+      - fnirs_core
+      - emg_core
+
+  python_code_help:
+    use:
+      - eeg_core
+      - fnirs_core
+      - theory_core
+      - ppg_core
+      - ecg_core
+
+  assignment_help:
+    use:
+      - theory_core
+      - ecg_core
+      - eeg_core
+      - fnirs_core
+      - emg_core
+      - hdsemg_core
+      - ppg_core
+    answer_policy:
+      hints_only: true
+      no_final_submission: true
+      allow_partial_derivation: true
+      allow_debugging_guidance: true
+
+routing_hints:
+  query_contains:
+    ecg: ecg_question
+    qrs: ecg_question
+    rr: ecg_question
+    emg: emg_question
+    hdsemg: hdsemg_question
+    high-density emg: hdsemg_question
+    eeg: eeg_question
+    ica: eeg_question
+    ppg: ppg_question
+    photoplethysmography: ppg_question
+    fnirs: fnirs_question
+    hbo: fnirs_question
+    hbr: fnirs_question
+    matlab: matlab_code_help
+    python: python_code_help
+    homework: assignment_help
+    assignment: assignment_help
+    作业: assignment_help
+    实验: lab_general
+    lab: lab_general
+
+answer_rules:
+  prefer_undergraduate_explanations: true
+  require_assumption_statements: true
+  cite_signal_specific_sources_first: true
+  avoid_diagnosis_or_clinical_conclusions: true
+  if_no_signal_specific_match_then_backoff_to_theory_core: true
+  if_conflict_between_sources:
+    priority_order:
+      - official_tutorial_or_course_note
+      - open_access_method_paper
+      - textbook_or_background_book
+      - low_trust_or_excluded

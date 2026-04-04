@@ -1,0 +1,17 @@
+﻿# Secrets
+.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local caches and vector stores
+agent-template/kb-v1/.cache/
+agent-template/kb-v1/chroma_db/
+
+# Local/runtime files
+*.log
+*.tmp
+
+# Materials are excluded by default; add only explicitly approved files later if needed
+materials/
