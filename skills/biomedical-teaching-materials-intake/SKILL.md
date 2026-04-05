@@ -11,13 +11,11 @@ Use this skill to standardize new course materials before they are relied on by 
 
 1. Inventory the new files and identify their apparent type from extension and context.
 2. Decide whether each file is directly usable for retrieval.
-3. Apply the PDF gate:
-   - If the file is not `pdf`, prefer converting it to `pdf` for course intake.
-   - If the file is `pdf`, determine whether it contains selectable text.
-   - If the `pdf` is image-only or largely image-based, treat it as a scanned PDF and require OCR before intake.
+3. Apply the PDF gate.
 4. Recommend a destination folder, normalized file name, and source group.
 5. Decide whether retrieval config must be updated.
 6. Decide whether the local vector index must be rebuilt or the cloud app must be redeployed.
+7. If OCR is required, generate an OCR queue before allowing the files into the knowledge base.
 
 ## Hard Rules
 
@@ -32,13 +30,11 @@ Use this skill to standardize new course materials before they are relied on by 
 
 When a user adds a new file, classify it into one of these states:
 
-- eady_pdf: PDF with selectable, extractable text and a clear topic.
-- eady_text_source: Markdown, text, or HTML source that is directly usable without PDF conversion.
-- 
-eeds_ocr: PDF exists but appears scanned, image-only, or text extraction is poor.
-- convert_to_pdf: File is usable as source material but should first be exported to PDF.
-- 
-ot_recommended: File is too noisy, unclear, duplicated, or legally risky.
+- `ready_pdf`: PDF with selectable, extractable text and a clear topic.
+- `ready_text_source`: Markdown, text, or HTML source that is directly usable without PDF conversion.
+- `needs_ocr`: PDF exists but appears scanned, image-only, or text extraction is poor.
+- `convert_to_pdf`: File is usable as source material but should first be exported to PDF.
+- `not_recommended`: File is too noisy, unclear, duplicated, or legally risky.
 
 If the user provides the file itself, inspect it instead of guessing. Use the [$pdf](C:/Users/Admin/.codex/skills/pdf/SKILL.md) skill when PDF inspection or page-level checks are needed.
 
@@ -65,12 +61,12 @@ Typical groups:
 - `theory_core`: sampling, filtering, FFT, STFT, wavelets, general preprocessing
 - `ecg_core`: ECG morphology, QRS detection, HR/HRV, ECG labs
 - `emg_core`: EMG preprocessing, envelope extraction, fatigue, activation analysis
-- `hdsemg_core`: HDsEMG arrays, decomposition, gesture or motor unit tasks
+- `hdsemg_core`: HDsEMG arrays, decomposition, gesture or motor-unit tasks
 - `eeg_core`: EEG preprocessing, artifacts, spectral bands, event analysis
 - `ppg_core`: PPG morphology, pulse features, wearable signal quality
 - `fnirs_core`: fNIRS preprocessing, baseline drift, hemodynamic response, optical-density workflows
 - `assignment_support`: assignment prompts, rubrics, FAQ, hint-oriented scaffolding
-- `lab_core`: lab manuals and experiment instructions if the project later uses a dedicated lab group
+- `lab_core`: lab manuals and experiment instructions when the project uses a dedicated lab group
 
 If a file clearly overrides older general material for the same topic, recommend moving it into a higher-priority group and demoting the older source.
 
@@ -91,7 +87,7 @@ Recommend these actions after intake:
 
 - Cloud lightweight app: refresh or redeploy if new source files are added to the repository used by the app.
 - Local Chroma app: rebuild the vector index if new source files are added or document contents materially changed.
-- Config-only changes: reload/restart the app and rebuild the index if routing or corpus selection depends on the vector store.
+- Config-only changes: reload or restart the app and rebuild the index if routing or corpus selection depends on the vector store.
 
 ## When To Escalate
 
@@ -104,15 +100,25 @@ Pause and ask the user before proceeding if:
 
 ## Scripts
 
-Run scripts/scan_materials_intake.py to scan a folder of new materials and emit a batch intake report in JSON and/or Markdown.
+Use these scripts as the default workflow:
 
-Example:
+- `scripts/scan_materials_intake.py`: scan a folder of new materials and emit an intake report.
+- `scripts/export_ppt_to_pdf.ps1`: batch export PowerPoint files to PDF.
+- `scripts/intake_to_retrieval_candidates.py`: convert intake results into retrieval-config candidate entries.
+- `scripts/run_ocr_queue.py`: build a queued OCR plan from `needs_ocr` records and optionally execute `ocrmypdf` when OCR tools are installed.
 
-`ash
+Examples:
+
+```bash
 python skills/biomedical-teaching-materials-intake/scripts/scan_materials_intake.py materials/course-slides --json-output tmp/intake.json --md-output tmp/intake.md
-` 
+```
+
+```bash
+python skills/biomedical-teaching-materials-intake/scripts/run_ocr_queue.py tmp/intake.json --source-root materials/course-slides --output-dir materials/course-slides-ocr --json-output tmp/ocr-queue.json --md-output tmp/ocr-queue.md
+```
 
 ## References
 
 Read [intake-checklist.md](references/intake-checklist.md) for the intake decision checklist.
 Read [routing-rules.md](references/routing-rules.md) for naming, folder placement, and source-group routing guidance.
+Read [ocr-workflow.md](references/ocr-workflow.md) for OCR execution and post-OCR verification.
