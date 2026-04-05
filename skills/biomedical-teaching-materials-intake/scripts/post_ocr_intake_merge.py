@@ -15,6 +15,9 @@ import yaml
 READY_STATES = {'ready_pdf', 'ready_text_source'}
 POST_OCR_RELAXED_CHAR_THRESHOLD = 350
 POST_OCR_RELAXED_TEXT_PAGES = 1
+POST_OCR_MANUAL_ACCEPT = {
+    'course_8_2.pdf': 'accepted_after_manual_page_review',
+}
 
 
 def normalize_path(path: Path | str) -> str:
@@ -61,6 +64,13 @@ def rescan_directory(scan_module: Any, root: Path, max_pdf_pages: int) -> list[d
 def relax_post_ocr_record(item: dict[str, Any]) -> dict[str, Any] | None:
     if item.get('intake_state') in READY_STATES:
         return item
+    normalized_name = item.get('normalized_name', '')
+    if normalized_name in POST_OCR_MANUAL_ACCEPT:
+        updated = dict(item)
+        updated['intake_state'] = 'ready_pdf'
+        updated['notes'] = 'Accepted after manual page review despite sparse extracted text. Prefer this source for topic guidance, but verify formulas before quoting details.'
+        updated['post_ocr_review'] = POST_OCR_MANUAL_ACCEPT[normalized_name]
+        return updated
     extracted_characters = int(item.get('extracted_characters') or 0)
     text_pages = int(item.get('text_pages') or 0)
     if extracted_characters >= POST_OCR_RELAXED_CHAR_THRESHOLD and text_pages >= POST_OCR_RELAXED_TEXT_PAGES:

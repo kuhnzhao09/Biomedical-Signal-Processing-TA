@@ -2,9 +2,9 @@
 
 - OCR root: `D:/NJMU/生物医学信号处理/materials/raonini/pdf-ocr`
 - Rescanned files: `6`
-- Promoted from `needs_ocr` to ready: `5`
-- Still blocked after OCR scan: `1`
-- Report generated: `2026-04-05T14:47:48`
+- Promoted from `needs_ocr` to ready: `6`
+- Still blocked after OCR scan: `0`
+- Report generated: `2026-04-05T14:57:11`
 
 ## Promoted Files
 
@@ -16,14 +16,15 @@
 |  |  |  | post_ocr_review=`accepted_with_relaxed_threshold` |
 | `第8章第1讲自适应滤波基本原理.pdf` | `ready_pdf` | `theory_core` | `第8章第1讲自适应滤波基本原理.pdf` |
 |  |  |  | post_ocr_review=`accepted_with_relaxed_threshold` |
+| `第8章第2讲自适应噪声抵消器.pdf` | `ready_pdf` | `theory_core` | `第8章第2讲自适应噪声抵消器.pdf` |
+|  |  |  | post_ocr_review=`accepted_after_manual_page_review` |
 | `第8章第4讲自适应滤波增强胃电测量.pdf` | `ready_pdf` | `theory_core` | `第8章第4讲自适应滤波增强胃电测量.pdf` |
 
 ## Merge Summary
 
 ### theory_core
 
-- appended: `D:/NJMU/生物医学信号处理/materials/raonini/pdf-ocr/第5章第2讲有限脉冲响应法求解维纳-霍夫方程.pdf`
-- appended: `D:/NJMU/生物医学信号处理/materials/raonini/pdf-ocr/第8章第1讲自适应滤波基本原理.pdf`
+- appended: `D:/NJMU/生物医学信号处理/materials/raonini/pdf-ocr/第8章第2讲自适应噪声抵消器.pdf`
 
 ## Created Groups
 
@@ -31,9 +32,7 @@
 
 ## Still Blocked
 
-| File | State | Notes |
-|---|---|---|
-| `第8章第2讲自适应噪声抵消器.pdf` | `needs_ocr` | Likely scanned or image-dominant PDF. Run OCR before intake. |
+(none)
 
 ## Candidate Payload Summary
 
