@@ -24,10 +24,18 @@ python skills/biomedical-teaching-materials-intake/scripts/run_ocr_queue.py tmp/
 
 ## After OCR
 
-1. Re-run `scan_materials_intake.py` on the OCR output folder.
-2. Confirm the target files are promoted from `needs_ocr` to `ready_pdf`.
-3. Convert the updated intake report into retrieval candidates.
-4. Merge promoted files into `retrieval-priority-v1.json`.
+Use the post-OCR merge script to rescan the OCR output folder and automatically merge promoted files into the retrieval config:
+
+```bash
+python skills/biomedical-teaching-materials-intake/scripts/post_ocr_intake_merge.py materials/raonini/pdf-ocr --original-intake-json tmp/raonini-pdf-intake.json --retrieval-config-json agent-template/kb-v1/retrieval-priority-v1.json --retrieval-config-yaml agent-template/kb-v1/retrieval-priority-v1.yaml --retrieval-config-py agent-template/kb-v1/retrieval_priority_v1.py --rescanned-json-output tmp/raonini-pdf-ocr-intake.json --rescanned-md-output tmp/raonini-pdf-ocr-intake.md --candidate-json-output tmp/raonini-pdf-ocr-candidates.json --candidate-md-output tmp/raonini-pdf-ocr-candidates.md --merge-report-md-output agent-template/intake-reports/raonini-post-ocr-merge.md
+```
+
+This command will:
+
+1. Re-run `scan_materials_intake.py` logic on the OCR output folder.
+2. Keep only files that were previously `needs_ocr` and are now promoted to `ready_pdf` or `ready_text_source`.
+3. Generate updated retrieval candidates.
+4. Merge promoted files into `retrieval-priority-v1.json` and sync the YAML and Python config files.
 
 ## Verification Checklist
 

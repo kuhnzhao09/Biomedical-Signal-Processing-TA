@@ -106,6 +106,7 @@ Use these scripts as the default workflow:
 - `scripts/export_ppt_to_pdf.ps1`: batch export PowerPoint files to PDF.
 - `scripts/intake_to_retrieval_candidates.py`: convert intake results into retrieval-config candidate entries.
 - `scripts/run_ocr_queue.py`: build a queued OCR plan from `needs_ocr` records and optionally execute `ocrmypdf` when OCR tools are installed.
+- `scripts/post_ocr_intake_merge.py`: rescan OCR outputs, keep only files promoted from `needs_ocr`, and merge them into the retrieval config.
 
 Examples:
 
@@ -115,6 +116,10 @@ python skills/biomedical-teaching-materials-intake/scripts/scan_materials_intake
 
 ```bash
 python skills/biomedical-teaching-materials-intake/scripts/run_ocr_queue.py tmp/intake.json --source-root materials/course-slides --output-dir materials/course-slides-ocr --json-output tmp/ocr-queue.json --md-output tmp/ocr-queue.md
+```
+
+```bash
+python skills/biomedical-teaching-materials-intake/scripts/post_ocr_intake_merge.py materials/course-slides-ocr --original-intake-json tmp/intake.json --retrieval-config-json agent-template/kb-v1/retrieval-priority-v1.json --retrieval-config-yaml agent-template/kb-v1/retrieval-priority-v1.yaml --retrieval-config-py agent-template/kb-v1/retrieval_priority_v1.py --rescanned-json-output tmp/post-ocr-intake.json --candidate-json-output tmp/post-ocr-candidates.json --merge-report-md-output agent-template/intake-reports/post-ocr-merge.md
 ```
 
 ## References
