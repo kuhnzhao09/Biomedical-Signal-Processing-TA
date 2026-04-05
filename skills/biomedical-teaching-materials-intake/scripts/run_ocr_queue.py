@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -14,16 +16,16 @@ P1_TERMS = [
     'wiener',
     'qrs',
     'ecg',
-    '\u81ea\u9002\u5e94',
-    '\u7ef4\u7eb3',
-    '\u6ee4\u6ce2',
+    '???',
+    '??',
+    '??',
 ]
 P2_TERMS = [
     'random',
     'correlation',
     'stochastic',
-    '\u968f\u673a',
-    '\u76f8\u5173',
+    '??',
+    '??',
 ]
 GROUP_BASE_PRIORITY = {
     'lab_core': 'P1',
@@ -67,6 +69,71 @@ def normalize_path(path: Path | str) -> str:
     return str(path).replace('\\', '/')
 
 
+def workspace_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def runtime_tmp_dir() -> Path:
+    base = Path.home() / 'bsp_ocr_tmp'
+    path = base / f'run-{uuid.uuid4().hex}'
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def resolve_executable(name: str, extra_candidates: list[Path]) -> str | None:
+    found = shutil.which(name)
+    if found:
+        return found
+    for candidate in extra_candidates:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def resolve_toolchain() -> dict[str, str | None]:
+    root = workspace_root()
+    user_scripts = Path.home() / 'AppData' / 'Roaming' / 'Python' / 'Python312' / 'Scripts'
+    tesseract_dir = Path(r'C:/Program Files/Tesseract-OCR')
+    ghostscript_candidates = sorted(Path(r'D:/Program Files/gs').glob('gs*/bin/gswin64c.exe'), reverse=True)
+    if not ghostscript_candidates:
+        ghostscript_candidates = sorted(Path(r'C:/Program Files/gs').glob('gs*/bin/gswin64c.exe'), reverse=True)
+
+    ocrmypdf_path = resolve_executable('ocrmypdf', [user_scripts / 'ocrmypdf.exe'])
+    tesseract_path = resolve_executable('tesseract', [tesseract_dir / 'tesseract.exe'])
+    gswin64c_path = resolve_executable('gswin64c', ghostscript_candidates)
+
+    tessdata_root = root / 'tools'
+    tessdata_dir = tessdata_root / 'tessdata'
+    if not tessdata_dir.exists():
+        tessdata_root = None
+
+    return {
+        'ocrmypdf': ocrmypdf_path,
+        'tesseract': tesseract_path,
+        'gswin64c': gswin64c_path,
+        'user_scripts': str(user_scripts) if user_scripts.exists() else None,
+        'tesseract_dir': str(tesseract_dir) if tesseract_dir.exists() else None,
+        'ghostscript_bin': str(Path(gswin64c_path).parent) if gswin64c_path else None,
+        'tessdata_prefix': str(tessdata_dir) if tessdata_root else None,
+    }
+
+
+def build_runtime_env(toolchain: dict[str, str | None]) -> dict[str, str]:
+    env = os.environ.copy()
+    path_parts = [env.get('PATH', '')]
+    for key in ('user_scripts', 'tesseract_dir', 'ghostscript_bin'):
+        value = toolchain.get(key)
+        if value:
+            path_parts.insert(0, value)
+    env['PATH'] = os.pathsep.join(part for part in path_parts if part)
+    if toolchain.get('tessdata_prefix'):
+        env['TESSDATA_PREFIX'] = toolchain['tessdata_prefix']
+    tmp_dir = runtime_tmp_dir()
+    env['TMP'] = str(tmp_dir)
+    env['TEMP'] = str(tmp_dir)
+    return env
+
+
 def load_records(path: Path) -> list[dict[str, Any]]:
     payload = json.loads(path.read_text(encoding='utf-8'))
     if not isinstance(payload, list):
@@ -81,9 +148,7 @@ def choose_priority(record: dict[str, Any]) -> tuple[str, str]:
     normalized_name = record.get('normalized_name', '')
 
     if normalized_name in KNOWN_PRIORITY_OVERRIDES:
-        priority, reason = KNOWN_PRIORITY_OVERRIDES[normalized_name]
-        return priority, reason
-
+        return KNOWN_PRIORITY_OVERRIDES[normalized_name]
     if any(term in name for term in P1_TERMS):
         return 'P1', 'Matched high-value OCR keywords in the file name.'
     if source_group in GROUP_BASE_PRIORITY and GROUP_BASE_PRIORITY[source_group] == 'P1':
@@ -98,10 +163,11 @@ def choose_priority(record: dict[str, Any]) -> tuple[str, str]:
 def make_command(ocrmypdf_path: str, language: str, input_pdf: Path, output_pdf: Path) -> list[str]:
     command = [
         ocrmypdf_path,
-        '--skip-text',
         '--rotate-pages',
         '--deskew',
         '--force-ocr',
+        '--jobs',
+        '1',
     ]
     if language:
         command.extend(['--language', language])
@@ -109,10 +175,8 @@ def make_command(ocrmypdf_path: str, language: str, input_pdf: Path, output_pdf:
     return command
 
 
-def build_tasks(records: list[dict[str, Any]], source_root: Path, output_root: Path, language: str) -> list[OCRTask]:
-    ocrmypdf_path = shutil.which('ocrmypdf') or 'ocrmypdf'
+def build_tasks(records: list[dict[str, Any]], source_root: Path, output_root: Path, language: str, ocrmypdf_path: str) -> list[OCRTask]:
     tasks: list[OCRTask] = []
-
     for item in records:
         if item.get('intake_state') != NEEDS_OCR_STATE:
             continue
@@ -139,12 +203,12 @@ def build_tasks(records: list[dict[str, Any]], source_root: Path, output_root: P
                 suggested_command=subprocess.list2cmdline(command),
             )
         )
-
     tasks.sort(key=lambda task: (PRIORITY_ORDER.get(task.priority, 9), task.file))
     return tasks
 
 
-def render_markdown(tasks: list[OCRTask], source_root: Path, output_root: Path, language: str, execute: bool, tools_ready: bool) -> str:
+def render_markdown(tasks: list[OCRTask], source_root: Path, output_root: Path, language: str, execute: bool, toolchain: dict[str, str | None]) -> str:
+    tools_ready = bool(toolchain.get('ocrmypdf') and toolchain.get('tesseract') and toolchain.get('gswin64c'))
     lines = [
         '# OCR Queue',
         '',
@@ -160,31 +224,52 @@ def render_markdown(tasks: list[OCRTask], source_root: Path, output_root: Path, 
     ]
     for task in tasks:
         signal = f"{task.pages_scanned} pages, {task.extracted_characters} chars, {task.text_pages} text pages"
-        lines.append(
-            f"| `{task.priority}` | `{task.file}` | `{task.source_group}` | `{signal}` | `{task.output_pdf}` | {task.priority_reason} |"
-        )
-    lines.append('')
+        lines.append(f"| `{task.priority}` | `{task.file}` | `{task.source_group}` | `{signal}` | `{task.output_pdf}` | {task.priority_reason} |")
+    lines.extend([
+        '',
+        '## Toolchain',
+        '',
+        f"- ocrmypdf: `{toolchain.get('ocrmypdf') or 'NOT_FOUND'}`",
+        f"- tesseract: `{toolchain.get('tesseract') or 'NOT_FOUND'}`",
+        f"- gswin64c: `{toolchain.get('gswin64c') or 'NOT_FOUND'}`",
+        f"- TESSDATA_PREFIX: `{toolchain.get('tessdata_prefix') or 'default'}`",
+        '',
+    ])
     return '\n'.join(lines)
 
 
-def run_tasks(tasks: list[OCRTask], language: str) -> list[dict[str, Any]]:
-    ocrmypdf_path = shutil.which('ocrmypdf')
-    if not ocrmypdf_path:
-        raise SystemExit('ocrmypdf is not installed or not on PATH. Install OCRmyPDF and Tesseract first, or rerun without --execute.')
+def run_tasks(tasks: list[OCRTask], language: str, toolchain: dict[str, str | None]) -> list[dict[str, Any]]:
+    ocrmypdf_path = toolchain.get('ocrmypdf')
+    tesseract_path = toolchain.get('tesseract')
+    gswin64c_path = toolchain.get('gswin64c')
+    if not ocrmypdf_path or not tesseract_path or not gswin64c_path:
+        raise SystemExit('OCR toolchain is incomplete. Ensure OCRmyPDF, Tesseract, and Ghostscript are installed or discoverable.')
 
+    env = build_runtime_env(toolchain)
     results: list[dict[str, Any]] = []
     for task in tasks:
         output_path = Path(task.output_pdf)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        if output_path.exists() and output_path.stat().st_size > 0:
+            results.append({
+                'file': task.file,
+                'priority': task.priority,
+                'returncode': 0,
+                'skipped_existing': True,
+                'stdout_tail': '',
+                'stderr_tail': 'Skipped because OCR output already exists.',
+                'output_pdf': task.output_pdf,
+            })
+            continue
         command = make_command(ocrmypdf_path, language, Path(task.input_pdf), output_path)
-        completed = subprocess.run(command, capture_output=True, text=True)
+        completed = subprocess.run(command, capture_output=True, text=True, env=env)
         results.append(
             {
                 'file': task.file,
                 'priority': task.priority,
                 'returncode': completed.returncode,
-                'stdout_tail': completed.stdout[-2000:],
-                'stderr_tail': completed.stderr[-2000:],
+                'stdout_tail': completed.stdout[-4000:],
+                'stderr_tail': completed.stderr[-4000:],
                 'output_pdf': task.output_pdf,
             }
         )
@@ -212,8 +297,10 @@ def main() -> int:
     if not source_root.exists() or not source_root.is_dir():
         raise SystemExit(f'Source root not found: {source_root}')
 
+    toolchain = resolve_toolchain()
+    ocrmypdf_path = toolchain.get('ocrmypdf') or 'ocrmypdf'
     records = load_records(intake_path)
-    tasks = build_tasks(records, source_root, output_root, args.language)
+    tasks = build_tasks(records, source_root, output_root, args.language, ocrmypdf_path)
     payload: dict[str, Any] = {
         'version': 1,
         'intake_json': normalize_path(intake_path),
@@ -221,33 +308,24 @@ def main() -> int:
         'output_root': normalize_path(output_root),
         'ocr_language': args.language,
         'execute_requested': args.execute,
-        'ocrmypdf_available': shutil.which('ocrmypdf') is not None,
-        'tesseract_available': shutil.which('tesseract') is not None,
+        'ocrmypdf_available': toolchain.get('ocrmypdf') is not None,
+        'tesseract_available': toolchain.get('tesseract') is not None,
+        'ghostscript_available': toolchain.get('gswin64c') is not None,
+        'toolchain': toolchain,
         'tasks': [asdict(task) for task in tasks],
     }
 
     if args.execute:
-        payload['execution_results'] = run_tasks(tasks, args.language)
+        payload['execution_results'] = run_tasks(tasks, args.language, toolchain)
 
     if args.json_output:
         json_path = Path(args.json_output).resolve()
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-
     if args.md_output:
         md_path = Path(args.md_output).resolve()
         md_path.parent.mkdir(parents=True, exist_ok=True)
-        md_path.write_text(
-            render_markdown(
-                tasks,
-                source_root,
-                output_root,
-                args.language,
-                args.execute,
-                payload['ocrmypdf_available'] and payload['tesseract_available'],
-            ),
-            encoding='utf-8',
-        )
+        md_path.write_text(render_markdown(tasks, source_root, output_root, args.language, args.execute, toolchain), encoding='utf-8')
 
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
