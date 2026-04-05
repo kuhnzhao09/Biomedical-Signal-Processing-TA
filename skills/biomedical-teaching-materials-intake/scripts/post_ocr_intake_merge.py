@@ -13,6 +13,8 @@ from typing import Any
 import yaml
 
 READY_STATES = {'ready_pdf', 'ready_text_source'}
+POST_OCR_RELAXED_CHAR_THRESHOLD = 350
+POST_OCR_RELAXED_TEXT_PAGES = 1
 
 
 def normalize_path(path: Path | str) -> str:
@@ -56,6 +58,20 @@ def rescan_directory(scan_module: Any, root: Path, max_pdf_pages: int) -> list[d
     return [asdict(item) for item in records]
 
 
+def relax_post_ocr_record(item: dict[str, Any]) -> dict[str, Any] | None:
+    if item.get('intake_state') in READY_STATES:
+        return item
+    extracted_characters = int(item.get('extracted_characters') or 0)
+    text_pages = int(item.get('text_pages') or 0)
+    if extracted_characters >= POST_OCR_RELAXED_CHAR_THRESHOLD and text_pages >= POST_OCR_RELAXED_TEXT_PAGES:
+        updated = dict(item)
+        updated['intake_state'] = 'ready_pdf'
+        updated['notes'] = 'Accepted after OCR-specific relaxed review. Verify key headings and formulas before broad teaching use.'
+        updated['post_ocr_review'] = 'accepted_with_relaxed_threshold'
+        return updated
+    return None
+
+
 def build_promoted_records(original_records: list[dict[str, Any]], rescanned_records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     original_needs = {
         item.get('relative_path'): item
@@ -69,8 +85,9 @@ def build_promoted_records(original_records: list[dict[str, Any]], rescanned_rec
         rel_path = item.get('relative_path')
         if rel_path not in original_needs:
             continue
-        if item.get('intake_state') in READY_STATES:
-            promoted.append(item)
+        relaxed_item = relax_post_ocr_record(item)
+        if relaxed_item is not None:
+            promoted.append(relaxed_item)
         else:
             still_blocked.append(item)
 
@@ -165,6 +182,9 @@ def render_merge_report(
             lines.append(
                 f"| `{item.get('file', '')}` | `{item.get('intake_state', '')}` | `{item.get('source_group', '')}` | `{item.get('relative_path', '')}` |"
             )
+            review = item.get('post_ocr_review')
+            if review:
+                lines.append(f"|  |  |  | post_ocr_review=`{review}` |")
         lines.append('')
 
     lines.append('## Merge Summary')
