@@ -95,21 +95,37 @@ def apply_teaching_mode(base_policy: dict[str, Any], teaching_mode: str) -> dict
     return policy
 
 
-def build_reference_list(results: list[dict[str, Any]]) -> list[dict[str, str]]:
+def build_reference_list(
+    results: list[dict[str, Any]],
+    candidate_documents: list[dict[str, Any]] | None = None,
+    limit: int = 8,
+) -> list[dict[str, str]]:
     refs: list[dict[str, str]] = []
     seen: set[str] = set()
-    for item in results:
-        path = item.get('path', '')
+
+    def add_ref(item: dict[str, Any]) -> None:
+        path = str(item.get('path', '')).strip()
         if not path or path in seen:
-            continue
+            return
         seen.add(path)
         refs.append(
             {
                 'file_name': Path(path).name,
-                'group': item.get('group', ''),
+                'group': str(item.get('group', '')).strip(),
                 'path': path,
             }
         )
+
+    for item in results:
+        add_ref(item)
+        if len(refs) >= limit:
+            return refs
+
+    for item in candidate_documents or []:
+        add_ref(item)
+        if len(refs) >= limit:
+            break
+
     return refs
 
 
@@ -117,7 +133,7 @@ def run_retrieval(query: str, config: dict[str, Any], top_files: int, top_chunks
     summary, chunk_records = build_candidate_chunks(query, config, top_files=top_files)
     scored = score_chunks(query, chunk_records)
     best = scored[:top_chunks]
-    references = build_reference_list(best)
+    references = build_reference_list(best, summary.get('candidate_documents', []), limit=max(top_files, top_chunks))
     answer_policy = apply_teaching_mode(summary.get('answer_policy', {}), teaching_mode)
     return {
         'query': query,
